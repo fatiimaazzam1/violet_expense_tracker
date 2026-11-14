@@ -10,7 +10,7 @@
 
 | Version | Date | Author | Change |
 | :--- | :--- | :--- | :--- |
-| 1.0.0 | 2026-11-10 | Fatima Azzam | Initial PRD; added Resolved Decisions RD-01–RD-03; refined FR-05, FR-21, FR-25, FR-26; added approval section |
+| 1.0.0 | 2026-11-10 | Fatima Azzam | Initial PRD; added Resolved Decisions RD-01–RD-03; refined FR-05, FR-21, FR-25, FR-26 |
 
 ## 1. Product Overview
 
