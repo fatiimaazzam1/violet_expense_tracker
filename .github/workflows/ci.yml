@@ -1,6 +1,7 @@
 #this file tells GitHub whenever code is pushed, run the flutter test command on all test files you find
 
-name: Flutter CI
+name: Analyze project source
+run: flutter analyze --no-fatal-infos --no-fatal-warnings
 
 on:
   push:
