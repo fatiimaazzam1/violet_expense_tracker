@@ -14,6 +14,10 @@
 | ADR-007 | Allow future-dated expenses with a confirmation warning | Accepted | 2026-11-10 |
 | ADR-008 | Enforce LF line endings via `.gitattributes` | Accepted | 2026-11-10 |
 | ADR-009 | Run `flutter analyze` + `flutter test` on every push via GitHub Actions | Accepted | 2026-11-10 |
+| ADR-010 | Show Welcome only on first launch using a Hive completion flag | Accepted | 2026-11-15 |
+| ADR-011 | Open Expense Details before edit or delete actions | Accepted | 2026-11-15 |
+| ADR-012 | Handle missing expenses and persistence failures explicitly | Accepted | 2026-11-15 |
+| ADR-013 | Persist and apply the selected `ThemeMode` through GetX | Accepted | 2026-11-16 |
 
 ---
 
@@ -135,7 +139,7 @@
 
 **Status:** Accepted
 **Context:** Development happens on Windows (CRLF), but CI runs on Linux (LF). `dart format --set-exit-if-changed` failed on the first CI run because of this mismatch.
-**Decision:** Add a `.gitattributes` file that forces `eol=lf` for `.dart`, `.yaml`, and `.yml` files. Re-normalize the repository once with `git rm --cached -r . && git add .`.
+**Decision:** Use `.gitattributes` to normalize text files to LF. The current rule `* text=auto eol=lf` applies to text files generally; explicit `.dart`, `.yaml`, and `.yml` rules are also present. The one-time repository normalization was historical and is not an instruction to rerun it.
 **Rationale:**
 1. **Reproducibility:** The same file must produce the same formatting on Windows and Linux.
 2. **CI stability:** Prevents "formatting failed" false positives.
@@ -159,6 +163,83 @@
 - **Positive:** Automated regression detection from day one.
 - **Negative:** A failing CI blocks merging. **Mitigation:** That is the point—it forces a fix before merge.
 - **Note:** `--no-fatal-infos --no-fatal-warnings` is intentional. `flutter analyze` exits with code 1 for any info-level lint, which would make CI permanently red on a fresh Flutter project. Only actual errors should fail the pipeline.
+
+---
+
+## ADR-010: Show Welcome Only on First Launch Using a Hive Completion Flag
+
+**Status:** Accepted
+**Context:** The Welcome screen exists in the design, but its launch policy was not previously specified. The approved product decision is to show it only once.
+**Decision:** Store an `onboardingCompleted` flag in the existing Hive settings storage. On startup, read it before selecting the initial route. The first launch opens Welcome; Get Started persists completion before navigating to the main application. Later launches open the main application directly. Do not add authentication, a backend, or another storage package.
+**Rationale:**
+1. The welcome experience is retained without interrupting returning users.
+2. Hive is already the approved offline persistence technology (ADR-001).
+3. The flag is a small app preference and does not justify a separate model or storage layer.
+**Consequences:**
+- **Positive:** First-launch behavior survives app restarts and works offline.
+- **Negative:** Startup must load the flag before choosing the initial route. The existing settings persistence path must remain the single source for the flag.
+- **Product traceability:** PRD §5.7, FR-32; PRD §12, RD-04.
+
+---
+
+## ADR-011: Open Expense Details Before Edit or Delete Actions
+
+**Status:** Accepted
+**Context:** The Home prototype shows an expense action dialog, while the approved product interaction requires tapping a Home expense to open a dedicated Details screen.
+**Decision:** Tapping a Home expense opens Expense Details, which presents amount, category, date, optional note, and Edit/Delete actions. Edit opens the existing prefilled expense form. Delete requires confirmation before permanently deleting the expense. After successful deletion, return to Home and refresh the expense list and dashboard calculations.
+**Rationale:**
+1. A dedicated screen supports viewing the selected expense and gives Edit/Delete a consistent location.
+2. Reusing the existing form avoids a second edit flow.
+3. This is an approved product interaction; it does not require another controller or package.
+**Consequences:**
+- **Positive:** Expense selection and subsequent actions have a clear route and context.
+- **Negative:** The Details screen's visual treatment is not established by the inspected prototype and must follow the approved design language without inventing requirements.
+- **Product traceability:** PRD §5.1 and §5.7, FR-02, FR-03, FR-33; PRD §12, RD-05.
+
+---
+
+## ADR-012: Handle Missing Expenses and Persistence Failures Explicitly
+
+**Status:** Accepted
+**Context:** A Details route can reference a record that no longer exists, and a local Hive write can fail. The UI must not imply a successful operation when data was not persisted.
+**Decision:** If an Expense Details request has no matching record, show an explicit not-found state with a return-to-Home action. A Hive lookup error is distinct from a missing record and presents an error with a retry path. If expense creation, editing, or deletion fails to persist, show an explicit error, preserve the current form or Details state, do not show success or navigate away as though the operation succeeded, and allow retry.
+**Rationale:**
+1. Explicit outcomes protect user trust and avoid false success feedback.
+2. Preserving the current screen and form state gives the user a retry path without losing input.
+3. This behavior uses the existing Hive/GetX architecture and adds no dependency.
+**Consequences:**
+- **Positive:** Missing data and write failures are visible and recoverable.
+- **Negative:** Exact error copy and visual treatment remain a UI implementation detail; DESIGN.md marks them as visually unverified.
+- **Product traceability:** PRD §5.7, FR-34–FR-35; PRD §12, RD-06.
+
+---
+
+## ADR-013: Persist and Apply the Selected `ThemeMode` Through GetX
+
+**Status:** Accepted
+**Context:** The PRD requires light/dark selection and persistence (FR-23–FR-24). The project owner approved GetX's theme-mode support rather than introducing a second theme owner.
+**Decision:** `SettingsController` owns the reactive `Rx<ThemeMode>`. Hive persists the selected mode. `GetMaterialApp` supplies `theme`, `darkTheme`, and the saved initial `themeMode`; settings changes are applied with `Get.changeThemeMode(mode)`. Load the saved mode before the first screen. Do not introduce a second source of truth.
+**Rationale:**
+1. It follows the accepted GetX and Hive architecture and the approved theme implementation.
+2. It ensures the first screen uses the persisted preference.
+3. It keeps theme state in one controller.
+**Consequences:**
+- **Positive:** Theme changes are reactive, applied immediately, and persisted locally.
+- **Negative:** The Hive serialization format and behavior if the preference write fails remain open and must be approved before implementation.
+- **Product traceability:** PRD §5.5, FR-23–FR-24.
+
+---
+
+## Open decisions — not accepted ADRs
+
+These are not approved technical decisions. Do not implement them as settled behavior until the owner approves them.
+
+| ID | Status | Open decision | Related reference |
+| :--- | :--- | :--- | :--- |
+| OPEN-01 | OPEN — NEEDS APPROVAL | Confirm the Expense/Category Hive type IDs, field indexes, box names, and settings keys. | ARCHITECTURE.md §4 |
+| OPEN-02 | OPEN — NEEDS APPROVAL | Define the user-visible outcome if saving the onboarding completion flag fails. | PRD FR-32; ADR-010 |
+| OPEN-03 | OPEN — NEEDS APPROVAL | Define retry/rollback behavior after partial category reassignment persistence. | PRD FR-21; ADR-006 |
+| OPEN-04 | OPEN — NEEDS APPROVAL | Define preference-save failure behavior and the stable Hive encoding for `ThemeMode`. | PRD FR-23–FR-27; ADR-013 |
 
 ---
 
