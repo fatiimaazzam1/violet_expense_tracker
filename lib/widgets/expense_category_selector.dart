@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/category.dart';
+import 'category_icon.dart';
 
 const List<Category> defaultExpenseCategories = <Category>[
   Category(id: 'food', name: 'Food', iconKey: 'food', isDefault: true),
@@ -45,7 +46,7 @@ class ExpenseCategorySelector extends StatelessWidget {
           children: defaultExpenseCategories.map((category) {
             return ChoiceChip(
               key: Key('expense.category.${category.id}'),
-              avatar: Icon(_iconFor(category.iconKey), size: 18),
+              avatar: CategoryIcon(iconKey: category.iconKey),
               label: Text(category.name),
               selected: selectedCategoryId == category.id,
               selectedColor: theme.colorScheme.primaryContainer,
@@ -65,15 +66,5 @@ class ExpenseCategorySelector extends StatelessWidget {
         ],
       ],
     );
-  }
-
-  IconData _iconFor(String iconKey) {
-    return switch (iconKey) {
-      'food' => Icons.restaurant_outlined,
-      'transport' => Icons.directions_transit_outlined,
-      'bills' => Icons.receipt_long_outlined,
-      'shopping' => Icons.shopping_bag_outlined,
-      _ => Icons.category_outlined,
-    };
   }
 }

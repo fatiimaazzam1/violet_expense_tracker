@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
+import 'package:violet_expense_tracker/controllers/category_controller.dart';
 import 'package:violet_expense_tracker/controllers/expense_controller.dart';
 import 'package:violet_expense_tracker/controllers/expense_form_controller.dart';
+import 'package:violet_expense_tracker/models/category.dart';
 import 'package:violet_expense_tracker/models/expense.dart';
 import 'package:violet_expense_tracker/routes/app_pages.dart';
 import 'package:violet_expense_tracker/routes/app_routes.dart';
@@ -371,7 +373,19 @@ class _FakeExpenseBinding extends Bindings {
 
   @override
   void dependencies() {
+    final hiveService = _FakeHomeHiveService();
+    Get.put<HiveService>(hiveService);
     Get.put<ExpenseController>(_expenseController);
+    Get.put<CategoryController>(
+      CategoryController(hiveService, _expenseController),
+    );
+  }
+}
+
+class _FakeHomeHiveService extends HiveService {
+  @override
+  Future<List<Category>> getAllCategories() async {
+    return HiveService.defaultCategories;
   }
 }
 
@@ -398,6 +412,7 @@ class _FakeExpenseController extends ExpenseController {
       return true;
     }
 
+    await Future<void>.delayed(Duration.zero);
     final gate = loadGate;
     if (gate != null) {
       final result = await gate.future;
