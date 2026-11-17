@@ -158,3 +158,11 @@ The live preview established the Welcome and Home appearance in screenshots and 
 - Layout behavior at 320px and 430px, including keyboard, text scaling, and any long labels.
 
 These are evidence gaps, not permission to invent requirements. Keep the approved PRD and accepted decisions as the source of truth.
+
+## 10. Add/Edit form implementation status
+
+The Add and Edit routes now use one shared native Flutter form with labelled amount, category, date, and optional-note controls, inline controller validation, a note counter, Cancel/Save actions, retryable load errors, and a distinct missing-expense state. The future-date dialog uses the approved ADR-007 wording. A successful write displays a Material snackbar and returns to the Home route; a failed write keeps the form and entered values visible.
+
+The category selector currently displays the four PRD-approved built-in categories using the UI-only stable IDs recorded in ADR-015. Category persistence, default-category seeding, and custom categories are not part of this milestone.
+
+The form does not display a currency prefix yet. The app has no implemented settings controller or approved initial currency value to supply one; the inspected prototype's selected-symbol prefix remains a known integration gap, not a change to the approved design. The screen uses a Material deep-purple seeded accent to follow the observed purple direction; this is not a claim that the exact Figma palette or dark palette has been measured. Device layout, keyboard behavior, and color contrast remain unverified.

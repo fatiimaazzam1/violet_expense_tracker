@@ -18,6 +18,8 @@
 | ADR-011 | Open Expense Details before edit or delete actions | Accepted | 2026-11-15 |
 | ADR-012 | Handle missing expenses and persistence failures explicitly | Accepted | 2026-11-15 |
 | ADR-013 | Persist and apply the selected `ThemeMode` through GetX | Accepted | 2026-11-16 |
+| ADR-014 | Fix Expense and Category Hive schemas and box names | Accepted | 2026-11-16 |
+| ADR-015 | Use Stable IDs for Built-In Expense Form Categories | Accepted | 2026-11-16 |
 
 ---
 
@@ -230,16 +232,54 @@
 
 ---
 
+## ADR-014: Fix Expense and Category Hive Schemas and Box Names
+
+**Status:** Accepted
+**Context:** The Expense and Category models require stable Hive adapter identifiers, field indexes, and box names before expense persistence is implemented.
+**Decision:** Use generated Hive adapters with the following fixed schema:
+
+| Model | Hive type ID | Field index and Dart type |
+| --- | ---: | --- |
+| `Expense` | `0` | `0`: `id` (`String`); `1`: `amount` (`double`); `2`: `categoryId` (`String`); `3`: `date` (`DateTime`); `4`: `note` (`String?`) |
+| `Category` | `1` | `0`: `id` (`String`); `1`: `name` (`String`); `2`: `iconKey` (`String`); `3`: `isDefault` (`bool`) |
+
+Store expenses in the `expenses` box and categories in the `categories` box, using each model's `id` as its Hive key. These identifiers and indexes must remain stable once persisted. This resolves OPEN-01 for Expense/Category schemas and box names. No settings box name or settings keys are approved by this decision.
+**Rationale:**
+1. The schema preserves the approved Expense and Category model fields.
+2. Stable type IDs and field indexes protect compatibility with persisted Hive records.
+3. Separate typed boxes keep expense and category persistence explicit.
+**Consequences:**
+- **Positive:** Expense and Category adapters and boxes can be implemented consistently.
+- **Negative:** Settings storage identifiers remain undecided and must not be inferred from these box names.
+
+---
+
+## ADR-015: Use Stable IDs for Built-In Expense Form Categories
+
+**Status:** Accepted
+**Context:** The Add/Edit form needs category choices, but category persistence, default seeding, and `CategoryController` are not implemented in this milestone. The product owner approved showing only the four built-in choices in the form and using stable lowercase IDs.
+**Decision:** The form UI presents Food (`food`), Transport (`transport`), Bills (`bills`), and Shopping (`shopping`) as UI-only category options. Do not add category CRUD or category-box persistence as part of the form UI milestone. Future default-category persistence must use these IDs or explicitly migrate existing expense references.
+**Rationale:**
+1. The four names are approved Must requirements in PRD FR-18.
+2. The selector can be usable without expanding this milestone into category management or storage.
+3. Stable references let new expenses retain a consistent `categoryId`.
+**Consequences:**
+- **Positive:** Add/Edit can select the approved built-in categories without introducing another controller or service.
+- **Negative:** The Add/Edit selector still uses its UI-only choices until the form is integrated with persisted categories. The category data foundation seeds the same stable IDs; custom categories are not selectable until that UI integration is implemented.
+- **Product traceability:** PRD FR-01, FR-18; this decision defines the UI integration boundary and does not change product scope.
+
+---
+
 ## Open decisions — not accepted ADRs
 
 These are not approved technical decisions. Do not implement them as settled behavior until the owner approves them.
 
 | ID | Status | Open decision | Related reference |
 | :--- | :--- | :--- | :--- |
-| OPEN-01 | OPEN — NEEDS APPROVAL | Confirm the Expense/Category Hive type IDs, field indexes, box names, and settings keys. | ARCHITECTURE.md §4 |
 | OPEN-02 | OPEN — NEEDS APPROVAL | Define the user-visible outcome if saving the onboarding completion flag fails. | PRD FR-32; ADR-010 |
 | OPEN-03 | OPEN — NEEDS APPROVAL | Define retry/rollback behavior after partial category reassignment persistence. | PRD FR-21; ADR-006 |
 | OPEN-04 | OPEN — NEEDS APPROVAL | Define preference-save failure behavior and the stable Hive encoding for `ThemeMode`. | PRD FR-23–FR-27; ADR-013 |
+| OPEN-05 | OPEN — NEEDS APPROVAL | Determine the settings box name and settings keys; none are approved yet. | ARCHITECTURE.md §4; ADR-013 |
 
 ---
 
