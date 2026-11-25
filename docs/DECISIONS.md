@@ -20,6 +20,7 @@
 | ADR-013 | Persist and apply the selected `ThemeMode` through GetX | Accepted | 2026-11-16 |
 | ADR-014 | Fix Expense and Category Hive schemas and box names | Accepted | 2026-11-16 |
 | ADR-015 | Use Stable IDs for Built-In Expense Form Categories | Accepted | 2026-11-16 |
+| ADR-016 | Finalize settings persistence and recovery behavior | Accepted | Not recorded |
 
 ---
 
@@ -35,7 +36,7 @@
 4. **Simplicity of relationship:** For a single one-to-many link (Expense → Category), storing a `categoryId` string on the Expense is sufficient. SQL joins are unnecessary.
 **Consequences:**
 - **Positive:** Less boilerplate, faster startup, simpler tests.
-- **Negative:** No built-in aggregation queries. Monthly totals and pie-chart sums will be computed in Dart inside the controller. For a personal tracker (thousands of records at most), this is fast enough. If the dataset grew to millions of rows, SQLite would be the correct choice.
+- **Negative:** No built-in aggregation queries. Monthly totals and category breakdowns are computed in Dart in the expense controller. For a personal tracker (thousands of records at most), this is fast enough. If the dataset grew to millions of rows, SQLite would be the correct choice.
 - **Mitigation:** Keep aggregations in `ExpenseController` as pure functions so they can be unit-tested and, if needed later, replaced with SQLite without touching the UI.
 
 ---
@@ -227,7 +228,7 @@
 3. It keeps theme state in one controller.
 **Consequences:**
 - **Positive:** Theme changes are reactive, applied immediately, and persisted locally.
-- **Negative:** The Hive serialization format and behavior if the preference write fails remain open and must be approved before implementation.
+- **Negative:** A preference write must complete before applying the new theme; failures leave the previous theme active and require visible feedback.
 - **Product traceability:** PRD §5.5, FR-23–FR-24.
 
 ---
@@ -243,43 +244,62 @@
 | `Expense` | `0` | `0`: `id` (`String`); `1`: `amount` (`double`); `2`: `categoryId` (`String`); `3`: `date` (`DateTime`); `4`: `note` (`String?`) |
 | `Category` | `1` | `0`: `id` (`String`); `1`: `name` (`String`); `2`: `iconKey` (`String`); `3`: `isDefault` (`bool`) |
 
-Store expenses in the `expenses` box and categories in the `categories` box, using each model's `id` as its Hive key. These identifiers and indexes must remain stable once persisted. This resolves OPEN-01 for Expense/Category schemas and box names. No settings box name or settings keys are approved by this decision.
+Store expenses in the `expenses` box and categories in the `categories` box, using each model's `id` as its Hive key. These identifiers and indexes must remain stable once persisted. This resolves OPEN-01 for Expense/Category schemas and box names. Settings storage is separately defined by ADR-016.
 **Rationale:**
 1. The schema preserves the approved Expense and Category model fields.
 2. Stable type IDs and field indexes protect compatibility with persisted Hive records.
 3. Separate typed boxes keep expense and category persistence explicit.
 **Consequences:**
 - **Positive:** Expense and Category adapters and boxes can be implemented consistently.
-- **Negative:** Settings storage identifiers remain undecided and must not be inferred from these box names.
+- **Negative:** Settings use a separate box and keys as defined by ADR-016; do not infer them from the Expense/Category schemas.
 
 ---
 
 ## ADR-015: Use Stable IDs for Built-In Expense Form Categories
 
 **Status:** Accepted
-**Context:** The Add/Edit form needs category choices, but category persistence, default seeding, and `CategoryController` are not implemented in this milestone. The product owner approved showing only the four built-in choices in the form and using stable lowercase IDs.
-**Decision:** The form UI presents Food (`food`), Transport (`transport`), Bills (`bills`), and Shopping (`shopping`) as UI-only category options. Do not add category CRUD or category-box persistence as part of the form UI milestone. Future default-category persistence must use these IDs or explicitly migrate existing expense references.
+**Context:** Expense records refer to categories by ID. The built-in category identifiers must remain stable as category persistence and the form selector are integrated.
+**Decision:** The persisted default categories are Food (`food`), Transport (`transport`), Bills (`bills`), and Shopping (`shopping`). The Add/Edit selector reads available categories from `CategoryController`, including custom categories, and uses those stable IDs.
 **Rationale:**
 1. The four names are approved Must requirements in PRD FR-18.
-2. The selector can be usable without expanding this milestone into category management or storage.
+2. The selector uses the persisted category collection instead of maintaining a separate UI-only list.
 3. Stable references let new expenses retain a consistent `categoryId`.
 **Consequences:**
-- **Positive:** Add/Edit can select the approved built-in categories without introducing another controller or service.
-- **Negative:** The Add/Edit selector still uses its UI-only choices until the form is integrated with persisted categories. The category data foundation seeds the same stable IDs; custom categories are not selectable until that UI integration is implemented.
+- **Positive:** Add/Edit uses the existing category controller and supports custom categories without duplicating persistence logic.
+- **Negative:** If identifiers ever need to change, an explicit data migration is required. Built-in categories cannot be deleted.
 - **Product traceability:** PRD FR-01, FR-18; this decision defines the UI integration boundary and does not change product scope.
 
 ---
 
-## Open decisions — not accepted ADRs
+## ADR-016: Finalize Settings Persistence and Recovery Behavior
 
-These are not approved technical decisions. Do not implement them as settled behavior until the owner approves them.
+**Status:** Accepted
+**Context:** Implementing Settings, first-launch onboarding, and linked-category deletion required resolution of the settings-storage and failure-recovery questions that had remained open. The product owner approved these implementation details without changing the product scope.
+**Decision:**
+1. Use the existing Hive service and a `settings` box. Persist `ThemeMode.name` in `themeMode`, the selected display symbol in `currencySymbol`, and onboarding completion as a boolean in `onboardingCompleted`.
+2. Initial preferences are Light theme and USD (`$`). Persist a requested theme or currency change before applying it. If the write fails, preserve the previous setting and show an error.
+3. If onboarding completion cannot be persisted, remain on Welcome with completion false, expose an error, and allow retry. Navigate to Home only after the write succeeds.
+4. If category reassignment fails partway through, keep the source category. A retry rereads the remaining source-linked expenses and resumes reassignment; this is not transactional rollback.
+**Rationale:**
+1. A single Hive service and settings box avoid an unnecessary persistence dependency or competing state owner.
+2. Persist-before-apply avoids showing a preference as saved when storage rejected it.
+3. Retryable onboarding preserves the first-launch contract without falsely marking it complete.
+4. Retaining the source category prevents orphaned expenses and makes partial progress recoverable.
+**Consequences:**
+- **Positive:** Settings and onboarding survive app restarts, while failed writes remain explicit and retryable.
+- **Negative:** Category reassignment can be partially complete until retry; the source category remains available during recovery.
+- **Product traceability:** PRD FR-21, FR-23–FR-27, and FR-32; ADR-006, ADR-010, and ADR-013.
 
-| ID | Status | Open decision | Related reference |
+## Resolved implementation questions
+
+These questions were previously tracked as open implementation decisions and are resolved by ADR-016.
+
+| ID | Status | Question | Related reference |
 | :--- | :--- | :--- | :--- |
-| OPEN-02 | OPEN — NEEDS APPROVAL | Define the user-visible outcome if saving the onboarding completion flag fails. | PRD FR-32; ADR-010 |
-| OPEN-03 | OPEN — NEEDS APPROVAL | Define retry/rollback behavior after partial category reassignment persistence. | PRD FR-21; ADR-006 |
-| OPEN-04 | OPEN — NEEDS APPROVAL | Define preference-save failure behavior and the stable Hive encoding for `ThemeMode`. | PRD FR-23–FR-27; ADR-013 |
-| OPEN-05 | OPEN — NEEDS APPROVAL | Determine the settings box name and settings keys; none are approved yet. | ARCHITECTURE.md §4; ADR-013 |
+| OPEN-02 | Resolved in ADR-016 | Onboarding write failure stays on Welcome and permits retry. | PRD FR-32; ADR-010 |
+| OPEN-03 | Resolved in ADR-016 | Keep the source category and resume remaining reassignments on retry. | PRD FR-21; ADR-006 |
+| OPEN-04 | Resolved in ADR-016 | Persist `ThemeMode.name`; failed preference writes keep the previous value. | PRD FR-23–FR-27; ADR-013 |
+| OPEN-05 | Resolved in ADR-016 | Use the `settings` box and `themeMode`, `currencySymbol`, `onboardingCompleted` keys. | ARCHITECTURE.md §4; ADR-013 |
 
 ---
 

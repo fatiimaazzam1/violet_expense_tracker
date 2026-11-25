@@ -175,6 +175,41 @@ void main() {
     expect(hiveService.storedExpenses, <Expense>[existing]);
     expect(controller.error.value, isA<HiveError>());
   });
+
+  test(
+    'category and date filters compose and use inclusive calendar days',
+    () async {
+      hiveService.storedExpenses.addAll(<Expense>[
+        _expense(id: 'before', date: DateTime(2026, 2, 28, 23, 59)),
+        _expense(id: 'first-day', date: DateTime(2026, 3, 1, 23, 59)),
+        Expense(
+          id: 'other-category',
+          amount: 20,
+          categoryId: 'transport',
+          date: DateTime(2026, 3, 2),
+        ),
+        _expense(id: 'last-day', date: DateTime(2026, 3, 3)),
+        _expense(id: 'after', date: DateTime(2026, 3, 4)),
+      ]);
+      final controller = await _createController(hiveService);
+
+      controller.applyFilters(
+        categoryIds: <String>{'food'},
+        startDate: DateTime(2026, 3, 1),
+        endDate: DateTime(2026, 3, 3),
+      );
+
+      expect(controller.visibleExpenses.map((expense) => expense.id), <String>[
+        'last-day',
+        'first-day',
+      ]);
+      expect(controller.hasActiveFilters, isTrue);
+
+      controller.clearFilters();
+      expect(controller.visibleExpenses, hasLength(5));
+      expect(controller.hasActiveFilters, isFalse);
+    },
+  );
 }
 
 Future<ExpenseController> _createController(

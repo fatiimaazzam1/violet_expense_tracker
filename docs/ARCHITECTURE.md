@@ -1,11 +1,11 @@
-# Violet Expense Tracker — Planned Architecture
+# Violet Expense Tracker — Architecture and Implementation
 
-**Status:** Implementation in progress; planned and implemented responsibilities are identified below
+**Status:** MVP implementation completed; final verification and Android delivery checks are recorded in `QA.md`.
 **Scope:** Flutter mobile application for Android and iOS, running offline
 **Project:** Violet Expense Tracker — Offline Personal Expense Tracking Mobile Application
 **Authority order:** Approved [PRD](./PRD.md); Personal Expense Tracker requirements in the challenge PDF; accepted [ADRs](./DECISIONS.md); [design specification](./DESIGN.md); this architecture; remaining project documentation and repository configuration.
 
-This document describes the target architecture and records implementation status where known. The source tree below is a target structure, not a claim that every listed file or feature exists.
+This document records the implemented architecture. Deferred and unverified items are called out explicitly.
 
 ## 1. Architecture principles
 
@@ -14,9 +14,9 @@ This document describes the target architecture and records implementation statu
 3. Keep expense and category data on-device. Core features must not require a backend or network access.
 4. Use small, direct classes that the developer can explain. Add an abstraction only when it solves a real need.
 5. Treat the PRD as the functional contract, accepted ADRs as the technical decisions, and DESIGN.md as the user-interface reference.
-6. Clearly distinguish planned files and features from those already implemented.
+6. Clearly distinguish implemented scope from deferred features and validation gaps.
 
-## 2. Planned `lib/` structure
+## 2. Implemented `lib/` structure
 
 The existing folders are reused; no `app/` folder or new top-level source folder is planned.
 
@@ -24,6 +24,8 @@ The existing folders are reused; no `app/` folder or new top-level source folder
 lib/
 ├── bindings/
 │   ├── app_binding.dart
+│   ├── category_binding.dart
+│   ├── expense_binding.dart
 │   ├── main_binding.dart
 │   ├── onboarding_binding.dart
 │   └── expense_form_binding.dart
@@ -36,16 +38,16 @@ lib/
 │   └── settings_controller.dart
 ├── models/
 │   ├── category.dart
-│   └── expense.dart
+│   ├── category.g.dart
+│   ├── expense.dart
+│   └── expense.g.dart
 ├── routes/
 │   ├── app_pages.dart
 │   └── app_routes.dart
 ├── services/
 │   └── hive_service.dart
 ├── utils/
-│   ├── category_icon_mapper.dart
-│   ├── currency_formatter.dart
-│   └── date_formatter.dart
+│   └── currency_formatter.dart
 ├── views/
 │   ├── expense_form_view.dart
 │   ├── categories_view.dart
@@ -59,9 +61,6 @@ lib/
 │   ├── category_form_dialog.dart
 │   ├── category_icon.dart
 │   ├── category_reassignment_dialog.dart
-│   ├── expense_card.dart
-│   ├── expense_filter_dialog.dart
-│   ├── expense_group_header.dart
 │   ├── expense_amount_field.dart
 │   ├── expense_category_selector.dart
 │   ├── expense_date_selector.dart
@@ -70,20 +69,20 @@ lib/
 └── main.dart
 ```
 
-The names and class names are proposals. Implement only files needed for the planned features, and keep each file limited to its responsibility.
+The Home expense row, date-group sections, filter dialog, and several state messages are private view components. `CategoryIcon` centralizes icon-key rendering; a separate icon mapper and shared date formatter were not needed.
 
 ## 3. Folder and layer responsibilities
 
-| Folder or file | Planned responsibility |
+| Folder or file | Implemented responsibility |
 | --- | --- |
-| `models/` | Plain application data structures and Hive model definitions. `Expense` and `Category` will have Hive adapters; generated adapter code will be produced by the configured Hive generator tooling. Models do not contain screen widgets or database orchestration. |
+| `models/` | Plain application data structures and Hive model definitions. `Expense` and `Category` have generated Hive adapters. Models do not contain screen widgets or database orchestration. |
 | `controllers/` | GetX controllers for application state and product rules. Controllers expose reactive state, validate operations, coordinate services, and provide derived values to views. `OnboardingController` persists completion of the first-launch Welcome flow. Controllers do not build widget trees or perform direct box access. |
 | `views/` | Complete screens: Welcome, the main navigation shell, Home / Expenses, Dashboard, Categories, Settings, Add Expense, Edit Expense, and Expense Details. Views render controller state, collect input, and call controller methods. |
-| `widgets/` | Reusable presentation components used by views, including expense cards, group headers, category icons, filter UI, and category dialogs. Expense deletion confirmation is presented from Details; do not add a separate action-menu flow. Widgets should not own persistence or duplicate business rules. |
+| `widgets/` | Reusable amount/category/date/note/action form controls, category icon, category creation dialog, and category reassignment dialog. Expense deletion confirmation is presented from Details; no separate expense action-menu flow exists. Widgets do not own persistence or duplicate business rules. |
 | `services/` | Technical operations. `HiveService` initializes Hive, opens typed boxes, and provides explicit local read/write methods for expenses, categories, settings, and the onboarding flag. It does not decide which screen is selected or render UI. |
 | `bindings/` | GetX dependency registration. The app binding registers initialized app-wide dependencies with `Get.put`; route bindings register screen-scoped controllers with `Get.lazyPut`. |
 | `routes/` | Route-name constants and the `GetPage` route table, including each route's view and binding. |
-| `utils/` | Small, stateless helpers for formatting and mapping stable category icon keys to Flutter icons. Keep business decisions in controllers. Avoid using this folder as a general dumping ground. |
+| `utils/` | `CurrencyFormatter` is a stateless display-formatting helper. Category icon rendering is centralized in the reusable `CategoryIcon` widget. Keep business decisions in controllers and avoid using this folder as a general dumping ground. |
 | `main.dart` | Application entry point. It initializes Flutter and Hive, loads settings needed for the first frame, registers global dependencies, and starts `GetMaterialApp`. It should not contain feature screens or expense business logic. |
 
 ### How the layers communicate
@@ -96,7 +95,7 @@ View -> GetX controller -> HiveService -> Hive
 
 Views do not read Hive directly. Controllers do not contain widget layout. `HiveService` handles persistence but does not make product decisions. Bindings connect controllers to their required services. This separation keeps UI changes, business rules, and storage changes understandable and independently testable.
 
-## 4. Planned models and persistence boundary
+## 4. Models and persistence boundary
 
 The Expense and Category Hive schemas below are approved by ADR-014. Once data is persisted, type IDs and field indexes become part of the local storage format and must not be changed or reused casually.
 
@@ -107,9 +106,9 @@ The Expense and Category Hive schemas below are approved by ADR-014. Once data i
 
 `uuid` creates each Expense and custom Category ID once. The four built-in Category IDs are the stable lowercase identifiers approved by ADR-015. Each ID is stored in the model and used as the Hive box key. Editing an expense updates the value under the same ID; it must not create a replacement ID. Expenses refer to categories by `categoryId`, never by category name. Category rename is not in the approved product scope; if later approved, change only the name and preserve the category ID so existing references remain valid.
 
-**Approved box names:** open `expenses` as `Box<Expense>` and `categories` as `Box<Category>`. No settings box name or settings keys have been approved; do not infer or add them as part of this persistence milestone.
+**Approved box names and settings keys:** `expenses` (`Box<Expense>`), `categories` (`Box<Category>`), and `settings` (`Box<dynamic>`). Settings keys are `themeMode`, `currencySymbol`, and `onboardingCompleted`; see ADR-016.
 
-`hive_generator` generates `ExpenseAdapter` and `CategoryAdapter` from `@HiveType` / `@HiveField` annotations. `HiveService.initialize()` initializes the Hive Flutter path, registers both generated adapters exactly once, and opens the typed `expenses` and `categories` boxes. It seeds missing built-in categories by their stable IDs without overwriting existing category records. Do not open a settings box until its name and keys are approved. `hive_generator` 2.0.1 validates field indexes as unique values from 0 through 255. Hive 2.2.3's registered built-in adapters use type IDs 16–18. Do not access boxes directly from Views or controllers.
+`hive_generator` generates `ExpenseAdapter` and `CategoryAdapter` from `@HiveType` / `@HiveField` annotations. `HiveService.initialize()` initializes the Hive Flutter path, registers both generated adapters exactly once, opens the typed expense/category boxes and the settings box, and seeds missing built-in categories without overwriting existing records. Hive 2.2.3's registered built-in adapters use type IDs 16–18. Do not access boxes directly from views or controllers.
 
 The initial category persistence implementation seeds only missing built-in IDs and preserves all existing category records; it does not migrate or rewrite existing expense references. Before a future persisted schema change, retain type IDs and existing field indexes; add new fields at unused indexes and assess read defaults or a migration only if the actual change requires one.
 
@@ -117,36 +116,36 @@ The initial category persistence implementation seeds only missing built-in IDs 
 
 ## 5. Controllers and state ownership
 
-- **`ExpenseController`**: Owns the reactive expense collection, initial-load status, expense CRUD, date-descending history, applied category/date filters, and monthly expense calculations. Keep aggregation functions straightforward and unit-testable, as required by ADR-001. Store only persisted records through `HiveService`. An update changes the existing expense under its original UUID; it never replaces the ID.
+- **`ExpenseController`**: Owns the reactive expense collection, load/write error state, expense CRUD, date-descending history, applied category/date filters, and current-calendar-month calculations. Filters combine category IDs and inclusive local calendar dates. Store only persisted records through `HiveService`. An update changes the existing expense under its original UUID; it never replaces the ID.
 - **`CategoryController` (implemented)**: Owns the reactive category collection, initial-load status, default-category protection, custom-category validation (case-insensitive uniqueness and 30-character limit), creation, and deletion/reassignment rules. Category editing remains deferred. It coordinates category reassignment with `ExpenseController`; it does not edit expense records directly.
-- **`SettingsController`**: App-wide controller and single source of app preference state. It owns reactive `Rx<ThemeMode>` and currency-symbol values, loads/saves them through `HiveService`, and never converts expense amounts.
-- **`OnboardingController`**: Route-scoped controller used by Welcome. It persists the onboarding-completed flag through the already initialized `HiveService` after Get Started; it does not own another copy of persisted state.
+- **`SettingsController`**: App-wide controller and single source of app preference state. It owns reactive `Rx<ThemeMode>` and currency-symbol values, defaults to Light/USD, loads/saves them through `HiveService`, persists `ThemeMode.name`, and never converts expense amounts. It applies a selection only after its write succeeds.
+- **`OnboardingController`**: Route-scoped controller used by Welcome. It persists the onboarding-completed flag through the initialized `HiveService` after Get Started. On failure it leaves the flag incomplete, exposes a retryable error, and does not navigate.
 - **`ExpenseFormController` (implemented)**: Owns temporary Add/Edit values and reactive loading, saving, not-found, error, and field-validation state. Edit mode loads through `ExpenseController`, distinguishes a missing expense from a load failure, and can retry. It validates a positive finite amount, a selected category, and the 200-character note limit, then delegates persistence to `ExpenseController` while preserving the original ID. `submit` reports success, failure, or `confirmationRequired`; for a future date the UI presents the ADR-007 dialog and retries with explicit confirmation. The controller does not show dialogs or access Hive.
 - **`MainNavigationController`**: Holds the selected bottom-navigation destination for the main shell. This is local UI state, not persisted product data.
 
 ### GetX state approach
 
 - Use `.obs` for shared application state such as expenses, categories, filters, theme, and currency. Views that render these values use small `Obx` regions so only dependent UI rebuilds.
-- Use `GetBuilder` for isolated, form- or screen-local state that does not need to be shared, such as a form's saving/validation presentation, draft filter selections, or the selected main-shell tab, following ADR-004.
+- Use local widget state for transient dialog drafts and save spinners; the shared main-shell tab uses a small `RxInt` controller. No additional state-management package is used.
 - Do not wrap a whole screen in `Obx` when only a small portion needs to react.
-- `GetMaterialApp` defines both `theme` and `darkTheme`; its initial `themeMode` is read from the already-loaded `SettingsController`. On a user change, `SettingsController` owns the `Rx<ThemeMode>`, persists the selected value through `HiveService`, and calls `Get.changeThemeMode(mode)` to apply it immediately. Do not add a second reactive theme state or rebuild the app root with another theme owner. The failure behavior and serialized representation of the saved mode remain **OPEN — NEEDS APPROVAL**; do not imply that a preference change succeeded when persistence fails.
+- `GetMaterialApp` defines both `theme` and `darkTheme`; its initial `themeMode` is read from the already-loaded `SettingsController`. On change, the controller persists the `ThemeMode.name` first and calls `Get.changeThemeMode(mode)` only after a successful write. A failed preference write keeps the previous selection and reports an error.
 - `CurrencyFormatter` is stateless: it accepts the amount and selected currency symbol as arguments and formats those values. It does not read a controller, call `Get.find`, or access application state.
 - Controllers report operation results explicitly. The Add/Edit form uses a Material `ScaffoldMessenger` snackbar after a successful write and an inline error message after a failed write; it does not show success or navigate away on failure. Confirmation/reassignment flows use dialogs where appropriate.
 
 ### Category reassignment coordination
 
-When a custom category has linked expenses, the category controller requires a valid destination and delegates matching expense updates to `ExpenseController.reassignExpenses(sourceCategoryId, destinationCategoryId)`. `ExpenseController` persists each updated category ID through `HiveService` and updates its reactive collection only after that write succeeds. The source category is deleted only after all reassignment writes succeed. If reassignment fails partway through, or category deletion fails afterward, retain the source category and surface the error; partially reassigned expenses still reference an existing category, so no expense is orphaned. `HiveService.deleteCategory` also rejects deletion while any stored expense still references that category. This does not roll back already-written expense updates, and retry/resume behavior is **OPEN — NEEDS APPROVAL**. For a custom category with no linked expenses, the caller still obtains the simple confirmation required by ADR-006 before deletion.
+When a custom category has linked expenses, the category controller requires a valid destination and delegates matching expense updates to `ExpenseController.reassignExpenses(sourceCategoryId, destinationCategoryId)`. The source category remains until all reassignment writes succeed. If reassignment fails partway through, keep the source category, report the error, and let the user retry; the retry reloads expenses and resumes for those still using the source ID. This is resumable, not transactional rollback. `HiveService.deleteCategory` rejects deletion while any stored expense still references the source category.
 
-## 6. Route and binding plan
+## 6. Routes and bindings
 
-`app_routes.dart` will define route-name constants. `app_pages.dart` will define named `GetPage` entries with the matching view and binding.
+`app_routes.dart` defines route-name constants. `app_pages.dart` defines named `GetPage` entries with the matching view and binding.
 
-**Current implementation status:** The temporary `/home` route uses `ExpenseBinding` and `CategoryBinding`, both of which resolve the single app-wide `HiveService` registered by `AppBinding`. The `/expense/add` and `/expense/edit` routes use a shared `ExpenseFormView` and `ExpenseFormBinding`. Each form route lazily creates a fresh `ExpenseFormController` with create mode or the edit ID from route arguments. The `/main` shell and Details route remain planned.
+`/home` hosts the main navigation shell. `MainBinding` registers the navigation, expense, and category controllers while reusing the app-wide `HiveService`. The `/expense/add` and `/expense/edit` routes use a shared `ExpenseFormView` and `ExpenseFormBinding`; each entry gets a fresh form controller. Details uses the existing shell-owned `ExpenseController`.
 
-| Planned route | View | Binding / behavior |
+| Route | View | Binding / behavior |
 | --- | --- | --- |
 | `/welcome` | `WelcomeView` | `OnboardingBinding` lazily registers `OnboardingController`. Get Started persists completion before navigating to the main shell. This route is selected only when the Hive onboarding flag is incomplete. |
-| `/main` | `MainNavigationView` | `MainBinding` lazily registers the navigation, expense, and category controllers. The shell contains the four bottom-navigation destinations: `HomeView`, `DashboardView`, `CategoriesView`, and `SettingsView`. |
+| `/home` | `MainNavigationView` | `MainBinding` lazily registers the navigation, expense, and category controllers. The shell contains Home, Dashboard, Categories, and Settings. |
 | `/expense/details` | `ExpenseDetailsView` | Receives an expense ID as route arguments and uses the existing MainBinding-owned `ExpenseController` (for example, through `GetView<ExpenseController>`). It does not register a duplicate controller. Missing records render the explicit not-found state. |
 | `/expense/add` | `ExpenseFormView` | `ExpenseFormBinding` creates a fresh `ExpenseFormController` in create mode with empty inputs and the PRD default date. |
 | `/expense/edit` | `ExpenseFormView` | `ExpenseFormBinding` creates a fresh `ExpenseFormController` in edit mode with the selected expense ID passed as a string route argument. The controller loads that expense from `ExpenseController`. |
@@ -155,10 +154,10 @@ The bottom-navigation destinations are child views of the main shell rather than
 
 ### Dependency injection lifecycle
 
-1. `main.dart` initializes Hive and loads saved settings before starting the first screen.
+1. `main.dart` initializes Hive, loads saved settings and onboarding state, and chooses Welcome or `/home` before starting the first screen.
 2. `AppBinding` registers those same initialized/preloaded instances of `HiveService` and `SettingsController` exactly once with `Get.put`, consistent with ADR-003. It does not initialize Hive, reload settings, or construct duplicates.
 3. `OnboardingBinding` uses `Get.lazyPut` for `OnboardingController`, supplying the same registered `HiveService`. It is created only when the Welcome route is opened.
-4. `MainBinding` uses `Get.lazyPut` for `ExpenseController`, `CategoryController`, and `MainNavigationController`. It supplies `HiveService` to the expense controller and both `HiveService` and `ExpenseController` to the category controller. Push Details over the still-active `/main` route so it can resolve that same `ExpenseController`; do not register a duplicate controller.
+4. `MainBinding` uses `Get.lazyPut` for `ExpenseController`, `CategoryController`, and `MainNavigationController`. It supplies the existing `HiveService` and `ExpenseController` to the feature controllers. Details opens over the still-active `/home` shell and resolves that same `ExpenseController`; do not register a duplicate controller.
 5. `ExpenseFormBinding` uses non-permanent `Get.lazyPut` for a new `ExpenseFormController` on each Add or Edit route entry, supplying the already registered `ExpenseController` through `Get.find`. Do not set `fenix: true` for this temporary controller. The view gets its controller from the binding; views do not construct storage services.
 
 `Get.find` should be used in bindings to resolve dependencies, not scattered throughout business logic. Constructor parameters make each controller's required services/controllers explicit.
@@ -168,7 +167,7 @@ The bottom-navigation destinations are child views of the main shell rather than
 - On `/expense/add`, the binding passes create mode. The controller starts with no amount, category, or note and uses today's date, then owns only the transient values for that form operation.
 - On `/expense/edit`, the binding passes edit mode and the expense ID. The controller loads the matching record through `ExpenseController` and populates the fields. If the ID is invalid or the record is unavailable, show an explicit failure instead of silently displaying an empty Add form.
 - Add and Edit route entries each receive a fresh, route-scoped controller. Do not reuse a permanent controller or persist unfinished form values. `ExpenseFormView` owns and disposes its amount/note `TextEditingController`s and GetX workers; the controller owns only reactive form values. When the route is removed, GetX disposes the route-scoped controller. Opening a later form operation must start with its own clean Add state or data loaded for its own Edit ID.
-- `ExpenseCategorySelector` still presents only the four PRD-approved built-in choices using the stable lowercase IDs in ADR-015. The category data layer now persists those IDs and custom categories, but the form selector is not yet integrated with `CategoryController`.
+- `ExpenseCategorySelector` observes `CategoryController`, so both built-in and custom categories are selectable. It displays the persisted stable IDs and never writes category data itself.
 
 ## 7. Application data flows
 
@@ -182,12 +181,12 @@ main.dart
        -> Hive.registerAdapter(CategoryAdapter())
        -> open Box<Expense>("expenses")
        -> open Box<Category>("categories") and seed missing built-in IDs
-       -> defer settings storage until its box name and keys are approved
+       -> open Box<dynamic>("settings")
   -> construct SettingsController with that HiveService and load saved theme/currency
   -> read onboardingCompleted from the same Hive settings storage
   -> runApp(GetMaterialApp(
        initialBinding: AppBinding(the same HiveService, the same loaded SettingsController),
-       initialRoute: onboardingCompleted ? Routes.main : Routes.welcome,
+       initialRoute: onboardingCompleted ? Routes.home : Routes.welcome,
        theme: lightTheme,
        darkTheme: darkTheme,
        themeMode: loaded SettingsController.themeMode.value,
@@ -200,7 +199,7 @@ main.dart
 
 Do not initialize Hive again in `AppBinding`, register the same global a second time, or reload the preferences there. At runtime, `SettingsController` updates its owned `Rx<ThemeMode>`, persists the selected mode through the same `HiveService`, and calls `Get.changeThemeMode(mode)`. The GetMaterialApp configuration uses the saved mode for its initial theme; no extra root-level reactive theme owner is introduced. Hive initialization and category seeding happen once before `runApp`; `AppBinding` only registers the supplied instances.
 
-On the first launch, the initial route is Welcome. `OnboardingController` writes the completion flag through the registered `HiveService` before navigating to `/main`. On later launches, `main.dart` selects `/main` directly.
+On the first launch, the initial route is Welcome. `OnboardingController` writes the completion flag through the registered `HiveService` before navigating to `/home`. On later launches, `main.dart` selects `/home` directly.
 
 ### B. Adding an expense
 
@@ -237,7 +236,7 @@ main.dart initializes Hive
   -> AppBinding: Get.put(HiveService, SettingsController)
   -> /welcome GetPage when onboarding is incomplete:
        OnboardingBinding uses Get.lazyPut(OnboardingController)
-  -> /main GetPage: MainBinding uses Get.lazyPut(...)
+  -> /home GetPage: MainBinding uses Get.lazyPut(...)
        -> ExpenseController(HiveService)
        -> CategoryController(HiveService)
        -> MainNavigationController()
@@ -284,15 +283,15 @@ If a Hive lookup fails, show an explicit error distinct from the not-found state
 
 ```text
 main.dart reads onboardingCompleted from Hive before runApp
-  -> false: /welcome -> OnboardingController persists true -> /main
-  -> true: /main directly
+  -> false: /welcome -> OnboardingController persists true -> /home
+  -> true: /home directly
 ```
 
-The flag is stored with existing settings through `HiveService`; no separate model, box, service, or backend is planned (FR-32 / ADR-010). **Failure behavior is pending approval:** the recommended behavior is to remain on Welcome, keep the flag incomplete, show a clear error, and allow retry if Hive cannot save the flag. Do not navigate to `/main` or report onboarding complete unless the write succeeds.
+The flag is stored in the `settings` box through `HiveService`; no separate model or backend is used (FR-32 / ADR-010). If the write fails, Welcome remains visible and the user can retry; navigation occurs only after success (ADR-016).
 
-## 8. Planned screen responsibilities
+## 8. Implemented screen responsibilities
 
-| Screen / shell | Main responsibility |
+| Screen / shell | Implemented responsibility |
 | --- | --- |
 | `WelcomeView` | Present the approved welcome design on first launch and invoke onboarding completion. Do not add a sign-in or account flow. |
 | `MainNavigationView` | Host the four main destinations and bottom navigation. |
@@ -303,13 +302,13 @@ The flag is stored with existing settings through `HiveService`; no separate mod
 | `ExpenseFormView` | Shared Add/Edit screen; renders reusable amount, category, date, note, and action widgets. Delegates validation and writes to `ExpenseFormController`, handles ADR-007 confirmation, and returns to Home with success feedback only after a successful write. |
 | `ExpenseDetailsView` | Show the selected expense and Edit/Delete actions; report a missing record explicitly. |
 
-The interactions, labels, and visual direction are defined in DESIGN.md; the exact widget composition is implementation work and must remain usable from 320px to 430px (NFR-03).
+The approved interactions and visual direction are defined in DESIGN.md. Automated widget tests cover selected narrow-width layouts; physical-device verification across the full width range remains outstanding.
 
 ## 9. Formatting and currency rules
 
 - Use `intl` for user-facing date and currency formatting. A stateless `CurrencyFormatter` accepts the amount and selected currency symbol as arguments and formats them without conversion (FR-25 / FR-26, ADR-005). The caller supplies the current symbol; the formatter never reads controller or application state.
-- Use a shared `DateFormatter` for date group headings and form dates, with “Today”, “Yesterday”, and a readable date for other days as required by FR-08.
-- Use `category_icon_mapper.dart` to map a persisted icon key to a Flutter icon. Keep the mapping centralized so persisted category data remains independent of widget implementation.
+- Home date groups use `intl` formatting and local calendar dates, with Today/Yesterday labels.
+- `CategoryIcon` centralizes mapping of persisted icon keys to Flutter icons; category models remain independent of widget implementation.
 - Keep date/month boundary logic consistent: Home grouping uses local calendar dates, and the dashboard uses the current calendar month. Exact timezone policy is not specified in the source documents and should not be expanded into a product requirement.
 
 ## 10. Coding and quality conventions
@@ -337,19 +336,19 @@ The challenge PDF lists CSV/PDF export, monthly budgets, local notifications, an
 
 ### Expense Tracker challenge alignment
 
-For expense data, the challenge permits Hive or SQLite (`sqflite`) and mentions `get_storage` for settings; ADR-001 selects Hive for local persistence. The challenge lists both Android and iOS compatibility, while the PRD says only Android will be tested on-device during the internship. This plan does not claim either platform has been validated.
+For expense data, the challenge permits Hive or SQLite (`sqflite`) and mentions `get_storage` for settings; ADR-001 selects Hive for local persistence. The challenge lists both Android and iOS compatibility, while the PRD says only Android will be tested on-device during the internship. No platform validation is claimed by this architecture record; current build and device checks are in `QA.md`.
 
 ### Conflicts, gaps, and follow-up
 
 - **Timeline mismatch in the PDF:** Project Info says two weeks / 10 working days, while the suggested schedule includes work through Day 14. The architecture does not resolve this planning contradiction; confirm the expected schedule with the internship owner.
 - **Storage options:** The PDF offers Hive or SQLite (`sqflite`) for local data and mentions `get_storage` for settings. ADR-001 selects Hive, so the plan uses Hive and introduces no alternative storage package.
 - **CI scope:** PRD NFR-07 calls for CI on pushes to `develop`; ADR-009 describes pushes and pull requests for both `main` and `develop`. The accepted ADR's broader coverage includes the PRD's `develop` push requirement; the architecture does not change either document.
-- **Expense Details visuals:** The approved PRD/ADRs require a Details screen and explicit missing-record/persistence-failure behavior, but the inspected Figma preview did not include that screen or those error states. Implement the specified behavior using the established visual language; exact copy and styling remain unverified and are not requirements.
-- **POC evidence:** `docs/POC.md` records that no runtime POC results are available; the package/API snapshot is not a runtime test.
-- **MCP evidence:** `docs/MCP.md` records the configured HTTP endpoint and clearly states that authentication, project access, and Resources support have not been verified in this record.
-- **QA plan:** `docs/QA.md` contains planned, PRD-traceable checks only. It does not claim that tests or platform validation were performed.
-- **README:** The README identifies the Expense Tracker and accurately states that the implementation is still the Flutter starter. Setup commands are provided; product screenshots, a working APK, demo, and verified results remain delivery work.
-- **Other named documents:** `MVP.md` and `REVIEW.md` are absent. PRD §9 already defines MVP scope, so a separate MVP document is not required for this plan; a review report is not appropriate before implementation.
+- **Expense Details visuals:** The PRD/ADRs require Details and explicit missing-record/persistence-failure behavior, which are implemented. The inspected Figma preview did not include that screen or those error states, so exact visual alignment remains unverified.
+- **POC evidence:** `docs/POC.md` separates the historical design/API research from production implementation; no separate runtime POC result is claimed.
+- **MCP evidence:** `docs/MCP.md` records the configured endpoint and the user-provided `src/main.tsx` snapshot, while distinguishing that single resource from an unavailable complete project-resource inventory.
+- **QA record:** `docs/QA.md` records the commands, actual test results, and remaining platform/visual validation gaps.
+- **README:** The README describes the implemented expense tracker, setup and run commands, and verified/unverified delivery status.
+- **MVP/review records:** `docs/MVP.md` and `docs/REVIEW.md` summarize the approved scope and implementation readiness separately from the PRD.
 
 ## 12. Package and API verification snapshot
 
@@ -370,13 +369,10 @@ Versions below were checked against `pubspec.yaml`, the resolved `pubspec.lock`,
 | `uuid` | `^4.3.3` | 4.6.0 |
 | `flutter_lints` | `^6.0.0` | 6.0.0 |
 
-The locked SDK constraints include the installed Flutter/Dart versions. The resolved GetX 4.7.3 source provides `GetMaterialApp`, `GetPage`, `Get.lazyPut`, and `Get.changeThemeMode`; Hive 2.2.3 and Hive Flutter 1.1.0 provide adapter registration, box-opening, and `Hive.initFlutter` APIs; `hive_generator` provides `@HiveType` / `@HiveField` adapter generation; `uuid` 4.6.0 provides `Uuid.v4`; `fl_chart` 0.66.2 provides `PieChart`; and `intl` 0.19.0 provides `NumberFormat.currency`. This verifies the planned API surface and package resolution; execution evidence is recorded in `docs/QA.md`.
+The locked SDK constraints include the installed Flutter/Dart versions. The resolved GetX 4.7.3 source provides `GetMaterialApp`, `GetPage`, `Get.lazyPut`, and `Get.changeThemeMode`; Hive 2.2.3 and Hive Flutter 1.1.0 provide adapter registration, box-opening, and `Hive.initFlutter` APIs; `hive_generator` provides `@HiveType` / `@HiveField` adapter generation; `uuid` 4.6.0 provides `Uuid.v4`; `fl_chart` 0.66.2 provides `PieChart`; and `intl` 0.19.0 provides `NumberFormat.currency`. This records resolved API/package versions; final execution evidence is in `docs/QA.md`.
 
-## 13. Open decisions — OPEN — NEEDS APPROVAL
+## 13. Implementation status and boundaries
 
-1. **Settings storage identifiers:** Approve a settings box name and its keys before implementing settings persistence. No settings box name or keys are approved in Section 4.
-2. **Onboarding write failure:** Choose the behavior if Hive cannot persist the completion flag. The recommended option is to remain on Welcome, keep completion false, show an error, and allow retry. Until approved, this is not accepted product behavior. If the choice changes the user-visible contract, update PRD §5.7 FR-32, §7 Flow 7, and §12 RD-04, plus ADR-010.
-3. **Partial category reassignment failure:** Choose whether recovery is retry/resume, rollback, or another explicit policy. The current plan retains the source category but can leave expenses split across source and destination.
-4. **Settings persistence failure and encoding:** Define behavior if saving theme/currency fails and the stable representation of `ThemeMode` in Hive. Do not add a second theme state.
+The approved MVP screens and core flows are implemented: first-launch Welcome, Home history and filters, Expense Details, Add/Edit Expense, Dashboard, Categories, and Settings. Expense and category data, settings, and onboarding state use Hive through `HiveService`; GetX controllers and bindings own state and dependency lifecycle. The implementation uses the approved dependencies and retains the Expense/Category Hive type IDs, field indexes, and built-in category IDs.
 
-This remains the target architecture for features not yet implemented. Implemented foundations include the Expense and Category models and generated adapters, expense and category persistence with default seeding, `ExpenseController`, `CategoryController`, their bindings, `ExpenseFormController`, `ExpenseFormBinding`, and the shared Add/Edit `ExpenseFormView` with reusable field/action widgets. Category management UI, Home history, Expense Details, the main navigation shell, dashboard, settings, onboarding, and the remaining product screens are not implemented.
+The technical choices previously listed as OPEN-02 through OPEN-05 were approved during the implementation milestone and are recorded as ADR-016. The approved PRD remains v1.1.0; optional bonuses remain excluded. Android device verification and current visual comparison with Figma are not claimed; see `QA.md` and `DESIGN.md`.

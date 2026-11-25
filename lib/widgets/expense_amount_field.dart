@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 class ExpenseAmountField extends StatelessWidget {
   const ExpenseAmountField({
     required this.textController,
+    required this.currencySymbol,
     required this.errorText,
     required this.onChanged,
     super.key,
   });
 
   final TextEditingController textController;
+  final String currencySymbol;
   final String? errorText;
   final ValueChanged<String> onChanged;
 
@@ -22,6 +24,7 @@ class ExpenseAmountField extends StatelessWidget {
       onChanged: onChanged,
       decoration: InputDecoration(
         labelText: 'Amount',
+        prefixText: '$currencySymbol ',
         prefixIcon: const Icon(Icons.payments_outlined),
         errorText: errorText,
         border: const OutlineInputBorder(),

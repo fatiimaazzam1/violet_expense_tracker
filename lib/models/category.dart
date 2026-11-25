@@ -18,7 +18,7 @@ class Category {
 
   const Category({
     required this.id,
-    required this.name,
+    required this.name, 
     required this.iconKey,
     required this.isDefault,
   });

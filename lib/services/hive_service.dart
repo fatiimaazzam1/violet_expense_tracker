@@ -6,6 +6,10 @@ import '../models/expense.dart';
 class HiveService {
   static const String expenseBoxName = 'expenses';
   static const String categoryBoxName = 'categories';
+  static const String settingsBoxName = 'settings';
+  static const String themeModeKey = 'themeMode';
+  static const String currencySymbolKey = 'currencySymbol';
+  static const String onboardingCompletedKey = 'onboardingCompleted';
 
   static const List<Category> defaultCategories = <Category>[
     Category(id: 'food', name: 'Food', iconKey: 'food', isDefault: true),
@@ -26,6 +30,7 @@ class HiveService {
 
   Box<Expense>? _expenseBox;
   Box<Category>? _categoryBox;
+  Box<dynamic>? _settingsBox;
   Future<void>? _initializing;
   bool _hiveInitialized = false;
 
@@ -49,8 +54,20 @@ class HiveService {
     return box;
   }
 
+  Box<dynamic> get settingsBox {
+    final box = _settingsBox;
+    if (box == null || !box.isOpen) {
+      throw StateError(
+        'HiveService.initialize() must complete before using the settings box.',
+      );
+    }
+    return box;
+  }
+
   Future<void> initialize({String? directoryPath}) async {
-    if ((_expenseBox?.isOpen ?? false) && (_categoryBox?.isOpen ?? false)) {
+    if ((_expenseBox?.isOpen ?? false) &&
+        (_categoryBox?.isOpen ?? false) &&
+        (_settingsBox?.isOpen ?? false)) {
       return;
     }
 
@@ -91,6 +108,7 @@ class HiveService {
 
     _expenseBox = await Hive.openBox<Expense>(expenseBoxName);
     _categoryBox = await Hive.openBox<Category>(categoryBoxName);
+    _settingsBox = await Hive.openBox<dynamic>(settingsBoxName);
     await _seedDefaultCategories();
   }
 
@@ -129,6 +147,26 @@ class HiveService {
 
   Future<List<Category>> getAllCategories() async {
     return List<Category>.unmodifiable(categoryBox.values);
+  }
+
+  Future<Object?> getSetting(String key) async => settingsBox.get(key);
+
+  Future<void> saveSetting(String key, Object value) async {
+    await settingsBox.put(key, value);
+  }
+
+  Future<bool> getOnboardingCompleted() async {
+    final value = settingsBox.get(onboardingCompletedKey, defaultValue: false);
+    if (value is! bool) {
+      throw FormatException(
+        'The stored $onboardingCompletedKey setting is not a boolean.',
+      );
+    }
+    return value;
+  }
+
+  Future<void> saveOnboardingCompleted(bool completed) async {
+    await settingsBox.put(onboardingCompletedKey, completed);
   }
 
   Future<void> addCategory(Category category) async {

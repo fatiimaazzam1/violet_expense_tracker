@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:violet_expense_tracker/controllers/expense_controller.dart';
+import 'package:violet_expense_tracker/controllers/settings_controller.dart';
 import 'package:violet_expense_tracker/models/category.dart';
 import 'package:violet_expense_tracker/models/expense.dart';
 import 'package:violet_expense_tracker/routes/app_pages.dart';
@@ -101,6 +102,86 @@ void main() {
     expect(find.text('Add Expense'), findsOneWidget);
     expect(find.byKey(const Key('expense.form')), findsOneWidget);
   });
+
+  testWidgets('category filter shows only matching expenses', (tester) async {
+    await _pumpHome(
+      tester,
+      expenses: <Expense>[
+        _expense(
+          id: 'food-expense',
+          amount: 10,
+          categoryId: 'food',
+          date: DateTime(2026, 11, 15),
+          note: 'Lunch',
+        ),
+        _expense(
+          id: 'transport-expense',
+          amount: 5,
+          categoryId: 'transport',
+          date: DateTime(2026, 11, 15),
+          note: 'Bus',
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('home.filters')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('home.filter.category.food')));
+    await tester.tap(find.byKey(const Key('home.filter.apply')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lunch'), findsOneWidget);
+    expect(find.text('Bus'), findsNothing);
+  });
+
+  testWidgets('no matches has a distinct filtered empty state', (tester) async {
+    await _pumpHome(
+      tester,
+      expenses: <Expense>[
+        _expense(
+          id: 'food-expense',
+          amount: 10,
+          categoryId: 'food',
+          date: DateTime(2026, 11, 15),
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('home.filters')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('home.filter.category.bills')));
+    await tester.tap(find.byKey(const Key('home.filter.apply')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('home.filteredEmpty')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('home.clearFilters')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('home.expenseList')), findsOneWidget);
+  });
+
+  testWidgets('selecting an expense opens its Details screen', (tester) async {
+    await _pumpHome(
+      tester,
+      expenses: <Expense>[
+        _expense(
+          id: 'lunch',
+          amount: 23.25,
+          categoryId: 'food',
+          date: DateTime(2026, 11, 15),
+          note: 'Lunch',
+        ),
+      ],
+    );
+
+    await tester.tap(find.byKey(const Key('home.expense.lunch')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Expense details'), findsOneWidget);
+    expect(find.byKey(const Key('details.amount')), findsOneWidget);
+    expect(find.text('Lunch'), findsOneWidget);
+    expect(find.byKey(const Key('details.edit')), findsOneWidget);
+    expect(find.byKey(const Key('details.delete')), findsOneWidget);
+  });
 }
 
 Future<void> _pumpHome(
@@ -143,6 +224,7 @@ class _HomeBinding extends Bindings {
   @override
   void dependencies() {
     Get.put<HiveService>(_hiveService);
+    Get.put<SettingsController>(SettingsController(_hiveService));
   }
 }
 

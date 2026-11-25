@@ -1,90 +1,62 @@
-# Violet Expense Tracker — Planned QA Strategy
+# Violet Expense Tracker — QA Record
 
-**Status:** Test plan with recorded implementation-milestone evidence; remaining checks are not claimed complete
-**Product source:** Approved `PRD.md`
+**Scope:** Approved PRD v1.1.0 MVP. Optional bonuses and QR Menu Admin requirements are excluded.
 
-## Scope and evidence rules
+## Latest automated verification
 
-Test only the offline Personal Expense Tracker. QR Menu Admin requirements and optional PRD §9 bonuses are excluded. Existing independent tests cover app startup, model serialization, HiveService, GetX bindings, and expense controllers; these do not constitute UI or platform validation.
-
-## Planned test layers
-
-| Layer | Planned coverage |
-| --- | --- |
-| Unit | Expense input validation; category-name uniqueness/length; date grouping and filters; monthly total and category aggregation; stateless currency/date formatting. |
-| Hive integration | Approved adapters and schema; Expense/Category CRUD; stable expense identity on edit; category references; settings and onboarding persistence after reopening boxes/app. |
-| Controller/widget | GetX dependency registration; onboarding route selection; Add/Edit controller state and validation; failed-save preservation and retry; future-date confirmation handoff; Home filters/empty states; dashboard refresh and empty month; category reassignment; settings selection. |
-| Failure paths | Missing expense vs Hive read error; create/edit/delete write failures; onboarding flag write failure; theme/currency write failure; partial category reassignment and category-delete failure. Implement only after open policies are approved. |
-| Device/manual | Layout and text scaling at 320px and 430px; keyboard/dialog usability; Android runtime. iOS compatibility/build is a target, but the PRD states there is no Mac/Xcode for on-device internship testing. |
-| CI | Confirm the configured formatting, analysis, and test jobs run on the documented push/PR branches; retain actual workflow results rather than inferring success from YAML. |
-
-## PRD traceability
-
-| PRD requirements | Planned verification |
-| --- | --- |
-| FR-01–07 | Add/edit valid and invalid data, positive amount, required category, date default/future-date confirmation, note length, and shared Add/Edit rules. Controller unit tests and Add/Edit widget tests cover field rendering, inline validation, date picker selection, and future-date dialog behavior. |
-| FR-08–13 | Date-descending grouping, category/date filtering, filtered-empty and first-time-empty states. |
-| FR-14–17 | Current-month total, category pie data, empty-month state, and refresh after every expense mutation. |
-| FR-18–22 | Required defaults, custom category create/delete, protected defaults, case-insensitive uniqueness, 30-character limit, linked-expense reassignment. |
-| FR-23–27 | Light/dark change, persisted preference, supported currency symbols, consistent display formatting without conversion, and persisted currency. |
-| FR-28–31 | Hive persistence across app/device restart and core behavior without network access. |
-| FR-32 | Welcome only on first launch and direct main-app launch after completion; failure case awaits approval. |
-| FR-33–35 | Details fields/actions, missing-record state, Hive lookup errors, failed writes preserving state, and retry behavior. |
-| NFR-01–02 | Measure launch under 3 seconds and save-plus-UI update under 500ms under documented conditions. The mid-range Android test device and measurement procedure still need to be selected and recorded. |
-| NFR-03–06 | 320–430px usability, English user-facing text, inline validation, and required GetX patterns. |
-| NFR-07 | Verify the actual CI run for `flutter analyze` and `flutter test` on pushes to `develop`; the workflow also includes `main` and pull requests. |
-
-## Open test-design items — OPEN — NEEDS APPROVAL
-
-- Approve settings storage identifiers and serialization before writing settings-persistence tests.
-- Approve onboarding, settings-write, and partial-category-reassignment failure behavior before locking those expected outcomes.
-- Select and document a mid-range Android device and repeatable timing procedure for NFR-01/02.
-
-## Verified implementation milestone — ExpenseFormController
-
-**Date:** 2026-11-16
-
-The independent `test/controllers/expense_form_controller_test.dart` covers create defaults; edit loading and ID preservation; valid, zero, and negative amounts; required category; the 200-character note boundary; missing records; load failure and retry; failed add/edit preserving form values; delegation to the correct `ExpenseController` operation; duplicate-submit prevention; and the future-date confirmation handoff.
+These are the results of the final code verification run for this implementation:
 
 | Command | Result |
 | --- | --- |
-| `dart format .` | Passed; 19 Dart files formatted. The initial run reformatted `app_binding.dart` and `expense_binding.dart`; the final run reported 0 files changed. |
+| `dart format .` | Passed; 53 Dart files checked, 0 changed. |
 | `flutter analyze` | Passed; no issues found. |
-| `flutter test` | Passed; all 30 tests passed, including 14 ExpenseFormController tests. |
-| `git diff --check` | Passed. |
+| `flutter test` | Passed; all 90 tests passed. |
+| `git diff --check` | Passed; no whitespace errors. Git emitted line-ending normalization warnings for `docs/DECISIONS.md` and `docs/DESIGN.md`. |
+| `flutter build apk --release` | Passed; created `build/app/outputs/flutter-apk/app-release.apk` (49.2 MB). The APK was not installed or launched on an Android device. |
 
-This records controller-only evidence for that milestone; at that point, the form UI, inline error rendering, future-date dialog, platform behavior, performance targets, and CI execution remained unverified. The next milestone records the Add/Edit UI tests.
+### Test coverage
 
-## Other verification not yet recorded
+- **Startup and bindings:** first-launch startup, route/controller registration, and reuse of the registered services/controllers.
+- **Expense controllers and persistence:** expense create/edit/delete, stable IDs on edit, input validation, storage failure behavior, reactive updates, category/date filtering, and local-calendar date boundaries.
+- **Expense form:** Add/Edit rendering and prefill, amount/category/note validation, date selection, future-date confirmation, failure value preservation/retry, duplicate-submit protection, edit loading/missing/error states, and post-save navigation.
+- **Home and Details:** empty Home state, Add navigation, reactive filter/display behavior, Details navigation, and confirmed deletion including the final expense.
+- **Categories:** default seeding and protection, custom category validation/CRUD, linked-expense reassignment, partial failure safety, and Add Expense selector integration.
+- **Dashboard and Settings:** current-month totals and category breakdown, empty-month state, currency formatting, persisted preference behavior, theme persistence ordering, and onboarding retry after a failed write.
+- **Hive:** adapter/box initialization, CRUD, reopen/reload persistence, and explicit failure behavior.
+- **Responsive widget check:** Welcome and Home are exercised at 320px. This is a widget-test result, not physical-device verification.
 
-No platform validation, performance measurements, or CI runs are recorded by this plan.
+The suite uses fakes for controller/widget tests and Hive-backed tests where persistence behavior is under test. Passing widget tests do not establish device runtime, pixel-level visual matching, or performance targets.
 
-## Verified implementation milestone — Add/Edit Expense form UI
+## Android and platform verification
 
-**Date:** 2026-11-16
+- `flutter devices` found Windows, Chrome, and Edge, but no Android device or emulator. No physical Android interaction test is claimed.
+- Release APK build succeeded at `build/app/outputs/flutter-apk/app-release.apk`; device installation/runtime remain unverified.
+- iOS build/device verification: not performed; no claim is made.
+- The Android application ID remains the Flutter placeholder `com.example.violet_expense_tracker`; choose/approve a production package identifier before external release.
 
-`test/views/expense_form_view_test.dart` contains 14 independent widget tests using a fake `ExpenseController` and the real named routes/bindings. Coverage includes Add rendering; Edit prefill; fresh route-scoped controller/mode; inline amount/category validation; note input limit; date picker selection; ADR-007 confirmation; successful Add/Edit feedback and Home navigation; failed Add/Edit preserving entered values and edit identity; disabled duplicate submissions; edit loading and missing-record states; and retry after an edit load error. No widget test opens Hive.
+## Visual, performance, and delivery gaps
 
-| Command | Result |
-| --- | --- |
-| `dart format .` | Passed; 27 Dart files checked, 0 changed. |
-| `flutter analyze` | Passed; no issues found. |
-| `flutter test` | Passed; all 44 tests passed. |
-| `git diff --check` | Passed; Git reported CRLF-to-LF normalization warnings for `DECISIONS.md` and `DESIGN.md`, with no whitespace errors. |
+- The final Flutter screens were not verified pixel-by-pixel against the Figma Make design. Historical Figma observations and known visual gaps are in `DESIGN.md`.
+- No genuine product screenshots are currently recorded as project deliverables.
+- NFR-01/02 startup and save/update performance targets were not measured on a documented mid-range Android device.
+- Text scaling, keyboard behavior, color contrast, and the full 320–430px range were not verified on Android hardware.
+- CI workflow success is not claimed from configuration alone; see actual workflow runs separately.
 
-Device layout, keyboard behavior, dark-mode appearance, currency-prefix integration, and iOS/Android runtime validation remain unverified. The category selector currently uses ADR-015's UI-only built-in choices; category persistence and custom categories remain outside this milestone.
+## Manual Android demonstration checklist
 
-## Verified implementation milestone — Category data foundation
+Run on a connected Android phone or emulator after `flutter devices` identifies it:
 
-The independent Hive service tests cover generated adapter registration, typed box opening, default-category seeding with stable IDs, idempotent and partial seeding, preserving existing records, custom-category persistence across reopening, CRUD, and explicit errors for invalid or unsafe storage operations.
+1. Run `flutter run -d <android-device-id>` and complete the first-launch Welcome flow.
+2. Add an expense with amount, category, date, and note; verify Home shows it and the daily total changes.
+3. Add a future-dated expense and verify the confirmation dialog; cancel once, then confirm and verify it saves.
+4. Open Details, edit the expense, and verify the same record is updated rather than duplicated.
+5. Open Details, cancel a delete confirmation, then confirm deletion; verify the list and total update, including when deleting the final item.
+6. Apply and clear category/date filters; verify the filtered-empty and ordinary empty states.
+7. Review Dashboard totals and category breakdown for the current month.
+8. Create a custom category, use it for an expense, reassign linked expenses before deletion, and verify built-in categories cannot be deleted.
+9. Change theme and currency, force-stop and relaunch, and verify preferences and expense/category data persist.
+10. Capture genuine Home, Dashboard, and Add/Edit screenshots for the README/demonstration. Record the device, Android version, and any issues; do not substitute widget-test images for device screenshots.
 
-The CategoryController tests cover valid creation, trimmed names, empty/duplicate/case-insensitive/overlength validation, the 30-character boundary, protected defaults, safe deletion, blocked deletion for linked expenses, reassignment delegated through ExpenseController, failed and partial writes preserving a valid source category, and read/write error state. Binding tests verify that Home uses both route bindings and CategoryController reuses the app-wide HiveService and ExpenseController.
+## Known scope boundaries
 
-| Command | Result |
-| --- | --- |
-| `dart format .` | Passed; 32 Dart files checked, 0 changed. |
-| `flutter analyze` | Passed; no issues found. |
-| `flutter test` | Passed; all 63 tests passed. |
-| `git diff --check` | Passed; Git reported existing CRLF-to-LF normalization warnings for documentation files, with no whitespace errors. |
-
-Category editing and category-management UI remain deferred. The Add/Edit form still uses the approved UI-only category choices until the next integration milestone. Recovery policy after partial reassignment remains open under OPEN-03; a failed reassignment retains its source category and reports the error.
+Category editing and the optional PRD §9 bonuses remain out of scope. See `PRD.md`, `MVP.md`, and `REVIEW.md` for the approved scope and readiness summary.

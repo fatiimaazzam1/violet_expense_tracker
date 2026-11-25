@@ -23,6 +23,10 @@ class CategoryIcon extends StatelessWidget {
       'transport' => Icons.directions_transit_outlined,
       'bills' => Icons.receipt_long_outlined,
       'shopping' => Icons.shopping_bag_outlined,
+      'coffee' => Icons.coffee_outlined,
+      'wallet' => Icons.account_balance_wallet_outlined,
+      'tag' => Icons.sell_outlined,
+      'card' => Icons.credit_card_outlined,
       _ => Icons.category_outlined,
     };
   }

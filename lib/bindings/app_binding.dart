@@ -1,17 +1,17 @@
 import 'package:get/get.dart';
 
+import '../controllers/settings_controller.dart';
 import '../services/hive_service.dart';
 
 class AppBinding extends Bindings {
-  AppBinding(this._hiveService);
+  AppBinding(this._hiveService, this._settingsController);
 
   final HiveService _hiveService;
+  final SettingsController _settingsController;
 
   @override
   void dependencies() {
-    Get.put<HiveService>(
-      _hiveService,
-      permanent: true,
-    ); //hive services stay in GETX's memory for the entire app lifecycle, so we don't have to reinitialize it every time we navigate to a new page.
+    Get.put<HiveService>(_hiveService, permanent: true);
+    Get.put<SettingsController>(_settingsController, permanent: true);
   }
 }

@@ -1,8 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:violet_expense_tracker/bindings/app_binding.dart';
-import 'package:violet_expense_tracker/bindings/expense_binding.dart';
+import 'package:violet_expense_tracker/bindings/main_binding.dart';
 import 'package:violet_expense_tracker/controllers/expense_controller.dart';
+import 'package:violet_expense_tracker/controllers/settings_controller.dart';
 import 'package:violet_expense_tracker/models/expense.dart';
 import 'package:violet_expense_tracker/routes/app_pages.dart';
 import 'package:violet_expense_tracker/routes/app_routes.dart';
@@ -11,14 +12,11 @@ import 'package:violet_expense_tracker/services/hive_service.dart';
 void main() {
   tearDown(Get.reset);
 
-  test('Home route uses ExpenseBinding', () {
+  test('Home route uses the main feature binding', () {
     final homeRoute = AppPages.routes.singleWhere(
       (route) => route.name == AppRoutes.home,
     );
-    expect(
-      homeRoute.bindings.map((binding) => binding.runtimeType),
-      contains(ExpenseBinding),
-    );
+    expect(homeRoute.binding.runtimeType, MainBinding);
   });
 
   test('lazily injects the globally registered HiveService', () async {
@@ -30,8 +28,8 @@ void main() {
     );
     final hiveService = _FakeHiveService(<Expense>[storedExpense]);
 
-    AppBinding(hiveService).dependencies();
-    ExpenseBinding().dependencies();
+    AppBinding(hiveService, SettingsController(hiveService)).dependencies();
+    MainBinding().dependencies();
 
     final controller = Get.find<ExpenseController>();
     while (controller.isLoading.value) {

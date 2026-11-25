@@ -7,6 +7,7 @@ import 'package:hive/hive.dart';
 import 'package:violet_expense_tracker/controllers/category_controller.dart';
 import 'package:violet_expense_tracker/controllers/expense_controller.dart';
 import 'package:violet_expense_tracker/controllers/expense_form_controller.dart';
+import 'package:violet_expense_tracker/controllers/settings_controller.dart';
 import 'package:violet_expense_tracker/models/category.dart';
 import 'package:violet_expense_tracker/models/expense.dart';
 import 'package:violet_expense_tracker/routes/app_pages.dart';
@@ -376,6 +377,7 @@ class _FakeExpenseBinding extends Bindings {
     final hiveService = _FakeHomeHiveService();
     Get.put<HiveService>(hiveService);
     Get.put<ExpenseController>(_expenseController);
+    Get.put<SettingsController>(SettingsController(hiveService));
     Get.put<CategoryController>(
       CategoryController(hiveService, _expenseController),
     );

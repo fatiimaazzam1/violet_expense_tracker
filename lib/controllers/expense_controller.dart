@@ -16,8 +16,59 @@ class ExpenseController extends GetxController {
   final HiveService _hiveService;
 
   final RxList<Expense> expenses = <Expense>[].obs;
+  final RxList<String> selectedCategoryIds = <String>[].obs;
+  final Rxn<DateTime> filterStartDate = Rxn<DateTime>();
+  final Rxn<DateTime> filterEndDate = Rxn<DateTime>();
   final RxBool isLoading = false.obs;
   final Rxn<Object> error = Rxn<Object>();
+  final Rxn<Object> loadError = Rxn<Object>();
+  final Rxn<Object> deleteError = Rxn<Object>();
+
+  List<Expense> get visibleExpenses {
+    final selectedCategories = selectedCategoryIds.toSet();
+    final start = _calendarDate(filterStartDate.value);
+    final end = _calendarDate(filterEndDate.value);
+
+    return expenses.where((expense) {
+      if (selectedCategories.isNotEmpty &&
+          !selectedCategories.contains(expense.categoryId)) {
+        return false;
+      }
+
+      final date = DateTime(
+        expense.date.year,
+        expense.date.month,
+        expense.date.day,
+      );
+      if (start != null && date.isBefore(start)) {
+        return false;
+      }
+      if (end != null && date.isAfter(end)) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  bool get hasActiveFilters =>
+      selectedCategoryIds.isNotEmpty ||
+      filterStartDate.value != null ||
+      filterEndDate.value != null;
+
+  List<Expense> get currentMonthExpenses {
+    final now = DateTime.now();
+    return expenses
+        .where(
+          (expense) =>
+              expense.date.year == now.year && expense.date.month == now.month,
+        )
+        .toList();
+  }
+
+  double get currentMonthTotal => currentMonthExpenses.fold<double>(
+    0,
+    (total, expense) => total + expense.amount,
+  );
 
   @override
   void onInit() {
@@ -28,17 +79,18 @@ class ExpenseController extends GetxController {
   Future<bool> loadExpenses() async {
     isLoading.value = true;
     error.value = null;
+    loadError.value = null;
 
     try {
       final loadedExpenses = await _hiveService.getAllExpenses();
       expenses.assignAll(_sortByDate(loadedExpenses));
       return true;
     } on HiveError catch (failure) {
-      return _recordError(failure);
+      return _recordLoadError(failure);
     } on StateError catch (failure) {
-      return _recordError(failure);
+      return _recordLoadError(failure);
     } on Exception catch (failure) {
-      return _recordError(failure);
+      return _recordLoadError(failure);
     } finally {
       isLoading.value = false;
     }
@@ -95,13 +147,39 @@ class ExpenseController extends GetxController {
 
   Future<bool> deleteExpense(String id) {
     error.value = null;
+    deleteError.value = null;
     return _runWrite(() => _hiveService.deleteExpense(id), () {
       expenses.removeWhere((expense) => expense.id == id);
+    }).then((succeeded) {
+      if (!succeeded) {
+        deleteError.value = error.value;
+      }
+      return succeeded;
     });
   }
 
   bool hasExpensesForCategory(String categoryId) {
     return expenses.any((expense) => expense.categoryId == categoryId);
+  }
+
+  int expenseCountForCategory(String categoryId) {
+    return expenses.where((expense) => expense.categoryId == categoryId).length;
+  }
+
+  void applyFilters({
+    Set<String> categoryIds = const <String>{},
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    selectedCategoryIds.assignAll(categoryIds);
+    filterStartDate.value = _calendarDate(startDate);
+    filterEndDate.value = _calendarDate(endDate);
+  }
+
+  void clearFilters() {
+    selectedCategoryIds.clear();
+    filterStartDate.value = null;
+    filterEndDate.value = null;
   }
 
   Future<bool> reassignExpenses({
@@ -200,6 +278,11 @@ class ExpenseController extends GetxController {
     return false;
   }
 
+  bool _recordLoadError(Object failure) {
+    loadError.value = failure;
+    return _recordError(failure);
+  }
+
   void _upsertExpense(Expense expense) {
     final index = expenses.indexWhere((item) => item.id == expense.id);
     if (index == -1) {
@@ -217,5 +300,12 @@ class ExpenseController extends GetxController {
     final sorted = List<Expense>.of(values);
     sorted.sort((first, second) => second.date.compareTo(first.date));
     return sorted;
+  }
+
+  DateTime? _calendarDate(DateTime? date) {
+    if (date == null) {
+      return null;
+    }
+    return DateTime(date.year, date.month, date.day);
   }
 }

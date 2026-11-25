@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:violet_expense_tracker/bindings/app_binding.dart';
-import 'package:violet_expense_tracker/bindings/category_binding.dart';
-import 'package:violet_expense_tracker/bindings/expense_binding.dart';
+import 'package:violet_expense_tracker/bindings/main_binding.dart';
 import 'package:violet_expense_tracker/controllers/category_controller.dart';
 import 'package:violet_expense_tracker/controllers/expense_controller.dart';
+import 'package:violet_expense_tracker/controllers/settings_controller.dart';
 import 'package:violet_expense_tracker/models/category.dart';
 import 'package:violet_expense_tracker/models/expense.dart';
 import 'package:violet_expense_tracker/routes/app_pages.dart';
@@ -14,24 +14,21 @@ import 'package:violet_expense_tracker/services/hive_service.dart';
 void main() {
   tearDown(Get.reset);
 
-  test('Home route binds both expense and category controllers', () {
+  test('Home route binds the shared main feature controllers', () {
     final homeRoute = AppPages.routes.singleWhere(
       (route) => route.name == AppRoutes.home,
     );
 
-    expect(
-      homeRoute.bindings.map((binding) => binding.runtimeType),
-      containsAll(<Type>[ExpenseBinding, CategoryBinding]),
-    );
+    expect(homeRoute.binding.runtimeType, MainBinding);
   });
 
   test(
     'CategoryController reuses the app HiveService and ExpenseController',
     () async {
       final hiveService = _FakeHiveService();
-      AppBinding(hiveService).dependencies();
-      ExpenseBinding().dependencies();
-      CategoryBinding().dependencies();
+      AppBinding(hiveService, SettingsController(hiveService)).dependencies();
+      MainBinding().dependencies();
+      Get.find<ExpenseController>();
 
       final categoryController = Get.find<CategoryController>();
       final expenseController = Get.find<ExpenseController>();

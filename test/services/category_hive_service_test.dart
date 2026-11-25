@@ -29,6 +29,7 @@ void main() {
     expect(Hive.isAdapterRegistered(1), isTrue);
     expect(service.expenseBox.name, HiveService.expenseBoxName);
     expect(service.categoryBox.name, HiveService.categoryBoxName);
+    expect(service.settingsBox.name, HiveService.settingsBoxName);
 
     final categories = await service.getAllCategories();
     expect(categories.map((category) => category.id).toSet(), <String>{
@@ -176,6 +177,24 @@ void main() {
         ),
         throwsA(isA<StateError>()),
       );
+    },
+  );
+
+  test(
+    'settings and onboarding preferences persist across box reopening',
+    () async {
+      await service.saveSetting(HiveService.themeModeKey, 'dark');
+      await service.saveSetting(HiveService.currencySymbolKey, '€');
+      await service.saveOnboardingCompleted(true);
+
+      await service.expenseBox.close();
+      await service.categoryBox.close();
+      await service.settingsBox.close();
+      await service.initialize();
+
+      expect(await service.getSetting(HiveService.themeModeKey), 'dark');
+      expect(await service.getSetting(HiveService.currencySymbolKey), '€');
+      expect(await service.getOnboardingCompleted(), isTrue);
     },
   );
 }

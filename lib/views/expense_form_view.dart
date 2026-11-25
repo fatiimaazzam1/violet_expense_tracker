@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../controllers/expense_form_controller.dart';
+import '../controllers/category_controller.dart';
+import '../controllers/settings_controller.dart';
 import '../widgets/expense_amount_field.dart';
 import '../widgets/expense_category_selector.dart';
 import '../widgets/expense_date_selector.dart';
@@ -130,6 +132,8 @@ class _ExpenseFormBodyState extends State<_ExpenseFormBody> {
 
   Widget _buildForm(BuildContext context) {
     final theme = Theme.of(context);
+    final categoryController = Get.find<CategoryController>();
+    final settingsController = Get.find<SettingsController>();
     return ListView(
       key: const Key('expense.form'),
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
@@ -144,6 +148,7 @@ class _ExpenseFormBodyState extends State<_ExpenseFormBody> {
         Obx(
           () => ExpenseAmountField(
             textController: _amountTextController,
+            currencySymbol: settingsController.currencySymbol.value,
             errorText: _form.amountError.value,
             onChanged: (value) => _form.amountText.value = value,
           ),
@@ -151,6 +156,7 @@ class _ExpenseFormBodyState extends State<_ExpenseFormBody> {
         const SizedBox(height: 24),
         Obx(
           () => ExpenseCategorySelector(
+            categories: categoryController.categories.toList(),
             selectedCategoryId: _form.selectedCategoryId.value,
             errorText: _form.categoryError.value,
             onSelected: (value) => _form.selectedCategoryId.value = value,

@@ -22,12 +22,14 @@ const List<Category> defaultExpenseCategories = <Category>[
 
 class ExpenseCategorySelector extends StatelessWidget {
   const ExpenseCategorySelector({
+    required this.categories,
     required this.selectedCategoryId,
     required this.errorText,
     required this.onSelected,
     super.key,
   });
 
+  final List<Category> categories;
   final String? selectedCategoryId;
   final String? errorText;
   final ValueChanged<String> onSelected;
@@ -43,7 +45,7 @@ class ExpenseCategorySelector extends StatelessWidget {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: defaultExpenseCategories.map((category) {
+          children: categories.map((category) {
             return ChoiceChip(
               key: Key('expense.category.${category.id}'),
               avatar: CategoryIcon(iconKey: category.iconKey),

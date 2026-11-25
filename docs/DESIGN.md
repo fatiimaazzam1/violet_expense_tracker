@@ -1,6 +1,6 @@
 # Violet Expense Tracker — Design Specification
 
-**Status:** Design reference for implementation
+**Status:** Approved design reference; implementation coverage and current visual-verification limits are recorded in §10.
 **Product authority:** Approved [PRD](./PRD.md) and accepted [decisions](./DECISIONS.md)
 **Visual reference:** Authenticated [Figma Make preview](https://www.figma.com/make/uRMVYs3ftoCm63REf8s3q2/Design-Violet-Expense-Tracker)
 
@@ -14,7 +14,7 @@ This document combines the approved product requirements with inspection of the 
 
 If prototype behavior conflicts with the PRD or an accepted ADR, follow the approved product decision. Translate the product intent into Flutter-native UI; do not reproduce web-specific implementation choices.
 
-The observations above describe the prior authenticated preview inspection; no preview screenshots or MCP retrieval artifacts are stored in this repository. This document does not claim that Figma resources were read through MCP.
+The observations above describe the prior preview inspection; no preview screenshots or MCP payloads are stored in this repository. The user supplied one `src/main.tsx` source snapshot through the VS Code MCP Resources interface, but that source is not a complete project export and does not provide verified styling/assets for every screen; see `MCP.md`.
 
 ## 2. Screen inventory
 
@@ -48,7 +48,7 @@ The observations above describe the prior authenticated preview inspection; no p
 - **Filter history:** Home → filter icon → choose one or more categories and/or start and end dates → Apply filters. A Food-only filter was applied and showed the one matching $18.50 expense; Clear restored the full list. The filter dialog says category and date filters work together.
 - **Category management:** Categories → Add category → enter a name, choose an icon, Save category. The dialog was inspected but not submitted. Deleting a category with linked expenses opens a required-reassignment dialog.
 - **Preferences:** Settings → select theme or currency. Theme selection updates immediately. Selecting EUR displayed a “Currency display changed to EUR” snackbar and changed visible amount formatting from `$` to `€`; it did not convert the underlying values. The test selection was restored to Light mode and USD.
-- **First-launch onboarding:** **PRD/ADR-010:** First launch → Welcome → Get started → persist completion in Hive → Home. On later launches, open the main application directly. The preview's visual flow was inspected, but repeated-launch behavior was not. What to do if the completion-flag write fails remains **OPEN — NEEDS APPROVAL**.
+- **First-launch onboarding:** **PRD/ADR-010:** First launch → Welcome → persist completion in Hive → Home. On later launches, open the main application directly. The preview's visual flow was inspected, but repeated-launch behavior was not. If persistence fails, remain on Welcome and allow retry (ADR-016).
 
 ## 4. Visual design reference
 
@@ -85,8 +85,8 @@ The observations above describe the prior authenticated preview inspection; no p
 | Category filtering | **Observed:** Select one or more categories, Apply, and Clear. A Food selection returned the Food expense; Clear restored all records. |
 | Date filtering | **Observed:** Start date and End date inputs are present, marked Optional, and combine with category filtering. **Unverified:** Actual date-range selection, boundary inclusivity, invalid range feedback, and filtered-empty presentation. |
 | Category creation | **Observed:** Name input, 0/30 counter, icon choices, Cancel, and Save category. **PRD:** Name must be unique case-insensitively and no longer than 30 characters. **Unverified:** Successful creation and duplicate/empty-name feedback. |
-| Category deletion/reassignment | **Observed:** A category with one expense displayed “Reassign expenses first,” explained that the expense would not be deleted, offered a destination category selector, and kept Reassign disabled until a category was selected. Cancel was exercised. **PRD/ADR-006:** Reassign dependent expenses before deleting the category. **Unverified:** Completing reassignment, post-delete feedback, and the no-linked-expenses confirmation flow. Built-in categories are marked Protected in the preview and cannot be deleted. Recovery after a partial persistence failure is **OPEN — NEEDS APPROVAL**. |
-| Theme and currency | **Observed:** Light/Dark and four currency radio options. Theme selection updates immediately; EUR produced a snackbar and changed displayed symbols. **PRD/ADR-005:** Currency changes display formatting only, never converts amounts, and both preferences persist across restarts. Restart persistence was not tested. Preference-write failure behavior and theme serialization are **OPEN — NEEDS APPROVAL**. |
+| Category deletion/reassignment | **Observed:** A category with one expense displayed “Reassign expenses first,” explained that the expense would not be deleted, offered a destination category selector, and kept Reassign disabled until a category was selected. Cancel was exercised. **PRD/ADR-006:** Reassign dependent expenses before deleting the category. **Unverified in preview:** Completing reassignment, post-delete feedback, and the no-linked-expenses confirmation flow. Built-in categories are marked Protected and cannot be deleted. On partial failure, retain the source category and resume remaining reassignments on retry (ADR-016). |
+| Theme and currency | **Observed:** Light/Dark and four currency radio options. Theme selection updates immediately; EUR produced a snackbar and changed displayed symbols. **PRD/ADR-005:** Currency changes display formatting only, never converts amounts, and both preferences persist across restarts. Restart persistence was not tested in the preview. Theme mode is stored by `ThemeMode.name`; failed preference writes keep the previous value and show an error (ADR-016). |
 | Empty states | **PRD:** Provide distinct first-time empty and filtered-empty states for history; show an empty state instead of a blank dashboard chart when the current month has no expenses. **Unverified:** The sample preview contained expenses, so none of these states was visually inspected. Their exact copy, artwork, and layout are not specified here. |
 | Dashboard updates/chart | **Observed in accessible preview contents:** Month total and category amounts/percentages are exposed and accompanied by an automatic-update note. **PRD:** Current-month total, pie chart by category, empty chart state, and updates after add/edit/delete. **Unverified:** Rendered chart type/legend/interaction and empty-month appearance; successful CRUD-driven refresh was not tested. |
 | Expense Details and missing record | **PRD/ADR-011/012:** Details shows amount, category, date, optional note, Edit, and Delete. A missing record shows a not-found state and a return-to-Home action. A Hive lookup error is a separate error state with retry. **Unverified visually:** The screen and states were not present in the preview; exact copy and layout are unspecified. |
@@ -159,10 +159,10 @@ The live preview established the Welcome and Home appearance in screenshots and 
 
 These are evidence gaps, not permission to invent requirements. Keep the approved PRD and accepted decisions as the source of truth.
 
-## 10. Add/Edit form implementation status
+## 10. Implemented design coverage and verification limits
 
-The Add and Edit routes now use one shared native Flutter form with labelled amount, category, date, and optional-note controls, inline controller validation, a note counter, Cancel/Save actions, retryable load errors, and a distinct missing-expense state. The future-date dialog uses the approved ADR-007 wording. A successful write displays a Material snackbar and returns to the Home route; a failed write keeps the form and entered values visible.
+The approved screen flows are implemented in Flutter: Welcome; date-grouped Home with filters and Add; Expense Details; shared Add/Edit forms; current-month Dashboard; category management; and Settings. The form selector reads persisted default and custom categories, and the selected currency symbol is used consistently in amount displays. Expense Details and persistence/error states follow the PRD/ADRs where the inspected prototype did not provide visual evidence.
 
-The category selector currently displays the four PRD-approved built-in categories using the UI-only stable IDs recorded in ADR-015. Category persistence, default-category seeding, and custom categories are not part of this milestone.
+The design direction is followed using the existing Material theme and violet/purple accent; this is not a claim that exact Figma color tokens, typography metrics, spacing, radii, dark palette, or screen-by-screen visual parity were measured. The current Android app was not rendered on a device during this milestone, and the Figma Make preview was not re-verified against the final implementation. Previous prototype observations remain evidence of that preview, not current visual acceptance.
 
-The form does not display a currency prefix yet. The app has no implemented settings controller or approved initial currency value to supply one; the inspected prototype's selected-symbol prefix remains a known integration gap, not a change to the approved design. The screen uses a Material deep-purple seeded accent to follow the observed purple direction; this is not a claim that the exact Figma palette or dark palette has been measured. Device layout, keyboard behavior, and color contrast remain unverified.
+Automated widget tests cover key screens and interactions, but they do not establish device layout, keyboard behavior, contrast, text scaling, or pixel-level alignment. The outstanding verification status is recorded in `QA.md`.
