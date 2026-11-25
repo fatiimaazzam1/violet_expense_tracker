@@ -1,5 +1,4 @@
 import 'package:hive/hive.dart';
-
 part 'category.g.dart';
 
 @HiveType(typeId: 1)
@@ -18,7 +17,7 @@ class Category {
 
   const Category({
     required this.id,
-    required this.name, 
+    required this.name,
     required this.iconKey,
     required this.isDefault,
   });
