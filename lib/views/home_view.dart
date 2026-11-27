@@ -347,6 +347,10 @@ class _ExpenseDaySection extends StatelessWidget {
       0,
       (total, expense) => total + expense.amount,
     );
+    final cardShape = RoundedRectangleBorder(
+      side: BorderSide(color: theme.colorScheme.outlineVariant),
+      borderRadius: BorderRadius.circular(16),
+    );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
@@ -373,29 +377,35 @@ class _ExpenseDaySection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              border: Border.all(color: theme.colorScheme.outlineVariant),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(
-              children: <Widget>[
-                for (var index = 0; index < group.expenses.length; index++) ...[
-                  _ExpenseRow(
-                    expense: group.expenses[index],
-                    category: categoriesById[group.expenses[index].categoryId],
-                    currencySymbol: currencySymbol,
-                  ),
-                  if (index < group.expenses.length - 1)
-                    Divider(
-                      height: 1,
-                      indent: 72,
-                      endIndent: 16,
-                      color: theme.colorScheme.outlineVariant,
+          Material(
+            color: theme.colorScheme.surface,
+            shape: cardShape,
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: cardShape.dimensions,
+              child: Column(
+                children: <Widget>[
+                  for (
+                    var index = 0;
+                    index < group.expenses.length;
+                    index++
+                  ) ...[
+                    _ExpenseRow(
+                      expense: group.expenses[index],
+                      category:
+                          categoriesById[group.expenses[index].categoryId],
+                      currencySymbol: currencySymbol,
                     ),
+                    if (index < group.expenses.length - 1)
+                      Divider(
+                        height: 1,
+                        indent: 72,
+                        endIndent: 16,
+                        color: theme.colorScheme.outlineVariant,
+                      ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
